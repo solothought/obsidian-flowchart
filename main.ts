@@ -1,134 +1,229 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { Plugin, MarkdownPostProcessorContext, PluginSettingTab, App, Setting } from 'obsidian';
+import { FlowChart } from '@solothought/text2chart';
+import text2chartCSS from '@solothought/text2chart/style.css';
 
-// Remember to rename these classes and interfaces!
-
-interface MyPluginSettings {
-	mySetting: string;
+// Settings interface
+interface StFlowSettings {
+    defaultWidth: string;
+    defaultHeight: string;
 }
 
-const DEFAULT_SETTINGS: MyPluginSettings = {
-	mySetting: 'default'
+const DEFAULT_SETTINGS: StFlowSettings = {
+    defaultWidth: '800px',
+    defaultHeight: '600px'
+};
+
+export default class StFlowPlugin extends Plugin {
+    settings: StFlowSettings;
+    private fullscreenChart: FlowChart | null = null; // Track fullscreen instance
+
+    async onload() {
+        console.log('Loading StFlow Plugin');
+        console.log(text2chartCSS.substring(0,50));
+        await this.loadSettings();
+        this.addStyle();
+        this.registerMarkdownCodeBlockProcessor('stflow', this.processStFlow.bind(this));
+        this.addSettingTab(new StFlowSettingTab(this.app, this));
+    }
+
+    private addStyle() {
+        console.log("Adding style for stflow");
+        const style = document.createElement('style');
+        style.appendChild(document.createTextNode(text2chartCSS + `
+            .stflow-container {
+                position: relative;
+                display: inline-block;
+            }
+            .stflow-fullscreen-icon {
+                position: absolute;
+                top: 0px;
+                right: 40px;
+                cursor: pointer;
+                z-index: 10;
+                font-size: 1.5rem;
+                color: var(--text-muted);
+            }
+            .stflow-fullscreen-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100vw;
+                height: 100vh;
+                background: rgba(0, 0, 0, 0.6); /* Semi-transparent background */
+                z-index: 1000;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+            }
+            .stflow-fullscreen-content {
+                position: relative;
+                width: 90vw;
+                height: 90vh;
+                background: white;
+                overflow: auto; /* Scroll if needed */
+            }
+            .stflow-fullscreen-close {
+                position: absolute;
+                top: 10px;
+                right: 10px;
+                font-size: 1.5rem;
+                cursor: pointer;
+                color: var(--text-muted);
+            }
+            .svelte-flow__attribution{
+                display: none;
+            }
+        `));
+        document.head.appendChild(style);
+    }
+
+    async processStFlow(source: string, el: HTMLElement, ctx: MarkdownPostProcessorContext) {
+        try {
+            // Parse metadata for custom size
+            let width = this.settings.defaultWidth;
+            let height = this.settings.defaultHeight;
+            let flowchartText = source;
+
+            const lines = source.split('\n');
+            let metadataEnd = 0;
+
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line.startsWith('#')) {
+                    metadataEnd = i;
+                    break;
+                }
+                const parts = line.substring(1).split(';').map(part => part.trim());
+                for (const part of parts) {
+                    if (part.startsWith('width:')) {
+                        width = part.split(':')[1].trim();
+                    } else if (part.startsWith('height:')) {
+                        height = part.split(':')[1].trim();
+                    } else if (part.match(/^\s*width\s*:/)) {
+                        width = part.split(':')[1].trim();
+                    } else if (part.match(/^\s*height\s*:/)) {
+                        height = part.split(':')[1].trim();
+                    }
+                }
+                if (i === lines.length - 1) metadataEnd = lines.length;
+            }
+
+            flowchartText = lines.slice(metadataEnd).join('\n');
+
+            // Create container
+            const container = el.createEl('div', { cls: 'stflow-container' });
+            const chartContainer = container.createEl('div', { cls: 'stflow-chart' });
+
+            // Initialize FlowChart
+            const chart = new FlowChart({
+                target: chartContainer,
+                props: {
+                    text: flowchartText,
+                    width: width,
+                    height: height,
+                    minimap: false,
+                    toolbar: false,
+                }
+            });
+
+            // Add fullscreen icon
+            const fullscreenIcon = el.createEl('span', {
+                cls: 'stflow-fullscreen-icon',
+                text: '⛶'
+            });
+
+            // Toggle fullscreen
+            fullscreenIcon.addEventListener('click', () => {
+                if (!this.fullscreenChart) {
+                    // Create fullscreen overlay
+                    const overlay = document.body.appendChild(document.createElement('div'));
+                    overlay.className = 'stflow-fullscreen-overlay';
+
+                    const content = overlay.appendChild(document.createElement('div'));
+                    content.className = 'stflow-fullscreen-content';
+
+                    // Render fullscreen chart
+                    this.fullscreenChart = new FlowChart({
+                        target: content,
+                        props: {
+                            text: flowchartText,
+                            width: '90vw',
+                            height: '90vh'
+                        }
+                    });
+
+                    // Add close button
+                    const closeButton = content.appendChild(document.createElement('span'));
+                    closeButton.className = 'stflow-fullscreen-close';
+                    closeButton.textContent = '✖'; // Close symbol
+                    closeButton.addEventListener('click', () => {
+                        overlay.remove();
+                        this.fullscreenChart?.$destroy();
+                        this.fullscreenChart = null;
+                        fullscreenIcon.textContent = '⛶';
+                    });
+
+                    fullscreenIcon.textContent = '🗕'; // Minimize symbol while open
+                }
+            });
+        } catch (error) {
+            const errorEl = el.createEl('div', { cls: 'stflow-error' });
+            errorEl.textContent = `Error rendering flowchart: ${error.message}`;
+            errorEl.style.color = 'red';
+            errorEl.style.fontFamily = 'monospace';
+        }
+    }
+
+    async loadSettings() {
+        this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    }
+
+    async saveSettings() {
+        await this.saveData(this.settings);
+    }
+
+    onunload() {
+        console.log('Unloading StFlow Plugin');
+        if (this.fullscreenChart) {
+            this.fullscreenChart.$destroy();
+            this.fullscreenChart = null;
+        }
+    }
 }
 
-export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings;
+// Settings tab
+class StFlowSettingTab extends PluginSettingTab {
+    plugin: StFlowPlugin;
 
-	async onload() {
-		await this.loadSettings();
+    constructor(app: App, plugin: StFlowPlugin) {
+        super(app, plugin);
+        this.plugin = plugin;
+    }
 
-		// This creates an icon in the left ribbon.
-		const ribbonIconEl = this.addRibbonIcon('dice', 'Sample Plugin', (evt: MouseEvent) => {
-			// Called when the user clicks the icon.
-			new Notice('This is a notice!');
-		});
-		// Perform additional things with the ribbon
-		ribbonIconEl.addClass('my-plugin-ribbon-class');
+    display(): void {
+        const { containerEl } = this;
+        containerEl.empty();
 
-		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		const statusBarItemEl = this.addStatusBarItem();
-		statusBarItemEl.setText('Status Bar Text');
+        new Setting(containerEl)
+            .setName('Default Flowchart Width')
+            .setDesc('Set the default width (e.g., 800px, 100%)')
+            .addText(text => text
+                .setPlaceholder('800px')
+                .setValue(this.plugin.settings.defaultWidth)
+                .onChange(async (value) => {
+                    this.plugin.settings.defaultWidth = value;
+                    await this.plugin.saveSettings();
+                }));
 
-		// This adds a simple command that can be triggered anywhere
-		this.addCommand({
-			id: 'open-sample-modal-simple',
-			name: 'Open sample modal (simple)',
-			callback: () => {
-				new SampleModal(this.app).open();
-			}
-		});
-		// This adds an editor command that can perform some operation on the current editor instance
-		this.addCommand({
-			id: 'sample-editor-command',
-			name: 'Sample editor command',
-			editorCallback: (editor: Editor, view: MarkdownView) => {
-				console.log(editor.getSelection());
-				editor.replaceSelection('Sample Editor Command');
-			}
-		});
-		// This adds a complex command that can check whether the current state of the app allows execution of the command
-		this.addCommand({
-			id: 'open-sample-modal-complex',
-			name: 'Open sample modal (complex)',
-			checkCallback: (checking: boolean) => {
-				// Conditions to check
-				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (markdownView) {
-					// If checking is true, we're simply "checking" if the command can be run.
-					// If checking is false, then we want to actually perform the operation.
-					if (!checking) {
-						new SampleModal(this.app).open();
-					}
-
-					// This command will only show up in Command Palette when the check function returns true
-					return true;
-				}
-			}
-		});
-
-		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new SampleSettingTab(this.app, this));
-
-		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
-		// Using this function will automatically remove the event listener when this plugin is disabled.
-		this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-			console.log('click', evt);
-		});
-
-		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
-	}
-
-	onunload() {
-
-	}
-
-	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
-	}
-
-	async saveSettings() {
-		await this.saveData(this.settings);
-	}
-}
-
-class SampleModal extends Modal {
-	constructor(app: App) {
-		super(app);
-	}
-
-	onOpen() {
-		const {contentEl} = this;
-		contentEl.setText('Woah!');
-	}
-
-	onClose() {
-		const {contentEl} = this;
-		contentEl.empty();
-	}
-}
-
-class SampleSettingTab extends PluginSettingTab {
-	plugin: MyPlugin;
-
-	constructor(app: App, plugin: MyPlugin) {
-		super(app, plugin);
-		this.plugin = plugin;
-	}
-
-	display(): void {
-		const {containerEl} = this;
-
-		containerEl.empty();
-
-		new Setting(containerEl)
-			.setName('Setting #1')
-			.setDesc('It\'s a secret')
-			.addText(text => text
-				.setPlaceholder('Enter your secret')
-				.setValue(this.plugin.settings.mySetting)
-				.onChange(async (value) => {
-					this.plugin.settings.mySetting = value;
-					await this.plugin.saveSettings();
-				}));
-	}
+        new Setting(containerEl)
+            .setName('Default Flowchart Height')
+            .setDesc('Set the default height (e.g., 600px, 100%)')
+            .addText(text => text
+                .setPlaceholder('600px')
+                .setValue(this.plugin.settings.defaultHeight)
+                .onChange(async (value) => {
+                    this.plugin.settings.defaultHeight = value;
+                    await this.plugin.saveSettings();
+                }));
+    }
 }
