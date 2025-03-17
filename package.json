@@ -1,6 +1,6 @@
 {
-	"name": "soloThought-flowChart",
-	"version": "1.0.0",
+	"name": "solothought-flowchart",
+	"version": "1.0.2",
 	"description": "Render flowcharts from 'stflow' code blocks using Text2Chart library for Obsidian.md.",
 	"main": "main.js",
 	"scripts": {
