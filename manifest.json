@@ -1,10 +1,10 @@
 {
 	"id": "solothought-flowchart",
 	"name": "SoloThought FlowChart",
-	"version": "1.0.2",
+	"version": "1.0.3",
 	"minAppVersion": "1.5.0",
 	"description": "Render flowcharts from 'stflow' code blocks using Text2Chart library.",
-	"author": "SoloThought",
+	"author": "Amit K Gupta",
 	"authorUrl": "https://solothought.com/",
   "helpUrl": "https://github.com/solothought/obsedian-flowchart",
 	"isDesktopOnly": false,
