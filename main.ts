@@ -1,6 +1,7 @@
 import { Plugin, MarkdownPostProcessorContext, PluginSettingTab, App, Setting } from 'obsidian';
 import { FlowChart } from '@solothought/text2chart';
 import text2chartCSS from '@solothought/text2chart/style.css';
+import styles from './styles.css';
 
 // Settings interface
 interface StFlowSettings {
@@ -29,51 +30,7 @@ export default class StFlowPlugin extends Plugin {
     private addStyle() {
         console.log("Adding style for stflow");
         const style = document.createElement('style');
-        style.appendChild(document.createTextNode(text2chartCSS + `
-            .stflow-container {
-                position: relative;
-                display: inline-block;
-            }
-            .stflow-fullscreen-icon {
-                position: absolute;
-                top: 0px;
-                right: 40px;
-                cursor: pointer;
-                z-index: 10;
-                font-size: 1.5rem;
-                color: var(--text-muted);
-            }
-            .stflow-fullscreen-overlay {
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100vw;
-                height: 100vh;
-                background: rgba(0, 0, 0, 0.6); /* Semi-transparent background */
-                z-index: 1000;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-            }
-            .stflow-fullscreen-content {
-                position: relative;
-                width: 90vw;
-                height: 90vh;
-                background: white;
-                overflow: auto; /* Scroll if needed */
-            }
-            .stflow-fullscreen-close {
-                position: absolute;
-                top: 10px;
-                right: 10px;
-                font-size: 1.5rem;
-                cursor: pointer;
-                color: var(--text-muted);
-            }
-            .svelte-flow__attribution{
-                display: none;
-            }
-        `));
+        style.appendChild(document.createTextNode(text2chartCSS + styles));
         document.head.appendChild(style);
     }
 
