@@ -126,8 +126,6 @@ export default class StFlowPlugin extends Plugin {
         } catch (error) {
             const errorEl = el.createEl('div', { cls: 'stflow-error' });
             errorEl.textContent = `Error rendering flowchart: ${error.message}`;
-            errorEl.style.color = 'red';
-            errorEl.style.fontFamily = 'monospace';
         }
     }
 

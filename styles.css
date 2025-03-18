@@ -41,3 +41,7 @@
 .svelte-flow__attribution{
   display: none;
 }
+.stflow-error{
+  color: red;
+  /* fontFamily: monospace; */
+}
