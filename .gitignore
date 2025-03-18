@@ -136,7 +136,7 @@ dist
 .pnp.*
 
 # build
-# main.js
+main.js
 *.js.map
 
 # obsidian
