@@ -1,7 +1,6 @@
 import { Plugin, MarkdownPostProcessorContext, PluginSettingTab, App, Setting } from 'obsidian';
 import { FlowChart } from '@solothought/text2chart';
 import text2chartCSS from '@solothought/text2chart/style.css';
-import styles from './styles.css';
 
 // Settings interface
 interface StFlowSettings {
@@ -19,8 +18,7 @@ export default class StFlowPlugin extends Plugin {
     private fullscreenChart: FlowChart | null = null; // Track fullscreen instance
 
     async onload() {
-        console.log('Loading StFlow Plugin');
-        console.log(text2chartCSS.substring(0,50));
+        this.devLog('Loading StFlow Plugin');
         await this.loadSettings();
         this.addStyle();
         this.registerMarkdownCodeBlockProcessor('stflow', this.processStFlow.bind(this));
@@ -28,9 +26,9 @@ export default class StFlowPlugin extends Plugin {
     }
 
     private addStyle() {
-        console.log("Adding style for stflow");
         const style = document.createElement('style');
-        style.appendChild(document.createTextNode(text2chartCSS + styles));
+        style.setAttribute('data-plugin', 'stflow'); // Mark for cleanup
+        style.appendChild(document.createTextNode(text2chartCSS));
         document.head.appendChild(style);
     }
 
@@ -138,10 +136,19 @@ export default class StFlowPlugin extends Plugin {
     }
 
     onunload() {
-        console.log('Unloading StFlow Plugin');
+        this.devLog('Unloading StFlow Plugin');
         if (this.fullscreenChart) {
             this.fullscreenChart.$destroy();
             this.fullscreenChart = null;
+        }
+        // Remove dynamically added styles
+        const styleElements = document.querySelectorAll('style[data-plugin="stflow"]');
+        styleElements.forEach(el => el.remove());
+    }
+
+    private devLog(...args: any[]) {
+        if (process.env.NODE_ENV === 'development') {
+            console.log(...args);
         }
     }
 }
@@ -160,7 +167,7 @@ class StFlowSettingTab extends PluginSettingTab {
         containerEl.empty();
 
         new Setting(containerEl)
-            .setName('Default Flowchart Width')
+            .setName('Default flowchart width')
             .setDesc('Set the default width (e.g., 800px, 100%)')
             .addText(text => text
                 .setPlaceholder('800px')
@@ -171,7 +178,7 @@ class StFlowSettingTab extends PluginSettingTab {
                 }));
 
         new Setting(containerEl)
-            .setName('Default Flowchart Height')
+            .setName('Default flowchart height')
             .setDesc('Set the default height (e.g., 600px, 100%)')
             .addText(text => text
                 .setPlaceholder('600px')

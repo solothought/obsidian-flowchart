@@ -1,7 +1,7 @@
 {
 	"id": "solothought-flowchart",
 	"name": "SoloThought FlowChart",
-	"version": "1.0.5",
+	"version": "1.0.6",
 	"minAppVersion": "1.5.0",
 	"description": "Render flowcharts from 'stflow' code blocks using Text2Chart library.",
 	"author": "Amit K Gupta",
